@@ -104,7 +104,8 @@ test('pluginFiles：逐文件单元（collectDir 下每个配置文件可单独�
   await write(ctx, 'dsh-ssh.json', '{"hosts":[]}');
   await write(ctx, 'plugin-config/foo/config.json', '{"a":1}');
   await write(ctx, 'plugin-config/bar/config.json', '{"b":2}');
-  const adapter = new PluginFilesAdapter(undefined, 'plugin-config');
+  // fork 定制：dsh-ssh.json 在缺省排除表里；显式写进 whitelist 才能带上（同时覆盖「合并」语义）
+  const adapter = new PluginFilesAdapter(['dsh-ssh.json'], 'plugin-config');
 
   const full = await adapter.export(ctx, { includeSecrets: false });
   assert.deepEqual(adapter.listUnits(full).map((u) => u.id).sort(), [

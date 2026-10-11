@@ -6,6 +6,18 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/xiajiajun516/dsh-config-manager/blob/main/LICENSE)
 [![DSH plugin](https://img.shields.io/badge/DSH-plugin-blueviolet)](https://github.com/deepseek-ai/deepseek-harness)
 
+> **本仓库是 AutumnPizazz 的个人 fork**（上游 [xiajiajun516/dsh-config-manager](https://github.com/xiajiajun516/dsh-config-manager)，MIT，保留原作者署名）。
+> 发布名：`@autumnpizazz/dsh-config-manager`；安装：`dsh plugin --profile web add @autumnpizazz/dsh-config-manager`。
+>
+> 相对上游 0.1.71 只改了 **pluginFiles 分区的缺省行为**（为了让「自研插件源码 + 插件状态文件」在新机器上零配置随包）：
+> 1. `pluginFilesDir` 缺省 `'plugins'` —— `~/.dsh/plugins/**` 自动随包，覆盖那些被 patch 行以 `./plugins/<name>/index.mjs` **相对引用**的散落文件（`plugins` 分区只 npm pack 声明在 `package.json` 里的 `link:`/`file:` 依赖，覆盖不到它们）；
+> 2. `pluginFiles` 恢复成文档承诺的**合并**语义（上游实现是替换默认白名单）；
+> 3. 新增 `pluginFilesExclude`，缺省 `['dsh-ssh.json']` —— 明文主机口令默认不进包；它只作用于**缺省白名单**，显式写进 `pluginFiles` 的条目仍会带上；
+> 4. `pluginFilesDir` 递归收集时跳过 `node_modules/`（安装产物，且常含指向 `$DSH_HOME` 之外的符号链接）。
+>
+> 其余功能、分区、UI 与上游一致。
+
+
 **DeepSeek Harness（DSH）配置备份、恢复与迁移插件。**
 
 DSH Config Manager 是一个 DeepSeek Harness 配置备份与迁移插件：一键备份、恢复、导出、导入和迁移完整 DSH 配置，包括——

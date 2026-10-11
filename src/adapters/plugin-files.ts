@@ -23,6 +23,21 @@ import { validateJsonSection } from './json-section.ts';
 
 export const DEFAULT_PLUGIN_FILE_WHITELIST: readonly string[] = ['dsh-ssh.json', 'pet.json'];
 
+/* —— fork 定制（AutumnPizazz/dsh-config-manager）开始 ——
+ * 三处默认值，让「本机自研插件源码 + 插件状态文件」在新机器上零配置随包：
+ *   1. DEFAULT_PLUGIN_FILES_DIR = 'plugins'：本机自研插件都住在 ~/.dsh/plugins/ 下，
+ *      而且 profile/home patch 行常以 ./plugins/<name>/index.mjs 这类**相对路径**引用它们 ——
+ *      plugins 分区只 npm pack `package.json` 里声明的 link:/file: 依赖，覆盖不到这些
+ *      「被 patch 行引用的散落文件」，所以缺省就把该目录整收进来。
+ *   2. DEFAULT_PLUGIN_FILE_EXCLUDE = ['dsh-ssh.json']：它是明文主机口令，缺省不带。
+ *      排除只作用于**默认白名单**；config.pluginFiles 里显式写了就一定会带上。
+ *   3. COLLECT_SKIP_DIRS：collectDir 递归收集时跳过的目录。node_modules 是安装产物
+ *      （且常含指向 $DSH_HOME 之外的符号链接），换机后由包管理器重建，不该进备份。
+ * —— fork 定制结束 —— */
+export const DEFAULT_PLUGIN_FILES_DIR = 'plugins';
+export const DEFAULT_PLUGIN_FILE_EXCLUDE: readonly string[] = ['dsh-ssh.json'];
+const COLLECT_SKIP_DIRS: readonly string[] = ['node_modules'];
+
 export class PluginFilesAdapter implements ConfigAdapter<FilesSection> {
   readonly id = 'pluginFiles' as const;
   // 元数据唯一来源 = 注册表（t31）：不再与 ui/export-flow.ts 的导出目录各写一份
@@ -33,12 +48,26 @@ export class PluginFilesAdapter implements ConfigAdapter<FilesSection> {
   /** 约定配置目录（相对 ~/.dsh 根，如 'plugin-config'）；递归收集其下所有文件。undefined = 不收集。 */
   private readonly collectDir?: string;
 
-  constructor(whitelist: string[] = [...DEFAULT_PLUGIN_FILE_WHITELIST], collectDir?: string) {
-    this.whitelist = whitelist;
-    if (collectDir !== undefined && collectDir !== '' && !isPathSafe(collectDir)) {
-      throw new Error(`pluginFiles collectDir 非法（须为相对 ~/.dsh 根的安全路径）: ${collectDir}`);
+  /**
+   * @param whitelist 额外白名单文件 —— 与默认白名单**合并**（与 index.d.ts 的 pluginFiles 注释一致）
+   * @param collectDir 约定配置目录；undefined = 用 DEFAULT_PLUGIN_FILES_DIR，'' = 不收集
+   * @param exclude 从**默认白名单**里剔除的相对路径（显式写进 whitelist 的不受影响）
+   */
+  constructor(
+    whitelist: string[] = [],
+    collectDir?: string,
+    exclude: readonly string[] = DEFAULT_PLUGIN_FILE_EXCLUDE,
+  ) {
+    const excluded = new Set(exclude);
+    this.whitelist = [...new Set([
+      ...DEFAULT_PLUGIN_FILE_WHITELIST.filter((rel) => !excluded.has(rel)),
+      ...whitelist,
+    ])];
+    const dir = collectDir === undefined ? DEFAULT_PLUGIN_FILES_DIR : collectDir;
+    if (dir !== '' && !isPathSafe(dir)) {
+      throw new Error(`pluginFiles collectDir 非法（须为相对 ~/.dsh 根的安全路径）: ${dir}`);
     }
-    this.collectDir = collectDir === '' ? undefined : collectDir;
+    this.collectDir = dir === '' ? undefined : dir;
   }
 
   async export(ctx: HostContext, options: ExportOptions): Promise<ExportSection<FilesSection>> {
@@ -70,7 +99,8 @@ export class PluginFilesAdapter implements ConfigAdapter<FilesSection> {
       } catch {
         // 目录不存在视为空
       }
-      const rels = listing.paths;
+      // fork 定制：node_modules 是安装产物（换机会重建），且常含指向 $DSH_HOME 之外的符号链接
+      const rels = listing.paths.filter((rel) => !rel.split('/').some((seg) => COLLECT_SKIP_DIRS.includes(seg)));
       for (const rel of rels) {
         if (seen.has(rel)) continue;
         if (!unitAllowed(allow, `${this.id}:${rel}`)) continue;
