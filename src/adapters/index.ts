@@ -28,10 +28,12 @@ export interface AdapterRegistryOptions {
   namespaces?: string[] | NamespaceProvider;
   /** 凭据 ref 收集器（缺省从 settings secrets 标记 + llm apiKeyEnv 推断） */
   credentialsRefs?: CredentialRefsProvider;
-  /** pluginFiles 白名单（相对 ~/.dsh 根；缺省 dsh-ssh.json + pet.json） */
+  /** pluginFiles 额外白名单文件（相对 ~/.dsh 根；与缺省白名单合并，见 DEFAULT_PLUGIN_FILE_WHITELIST） */
   pluginFiles?: string[];
-  /** pluginFiles 约定的配置目录（相对 ~/.dsh 根），递归收集其下所有插件配置文件 */
+  /** pluginFiles 约定的配置目录（相对 ~/.dsh 根），递归收集其下所有插件配置文件；缺省 'plugins'，'' = 不收集 */
   pluginFilesDir?: string;
+  /** fork 定制：从缺省白名单里剔除的相对路径（缺省 dsh-ssh.json，明文口令不进包）；显式写进 pluginFiles 的不受影响 */
+  pluginFilesExclude?: string[];
   /** 是否包含 sessions 分区（默认关，研究报告 §4.9） */
   includeSessions?: boolean;
   /** 插件自身包名：导出 plugins 分区时不列自己（避免自引用；缺省 dsh-config-manager） */
@@ -63,7 +65,7 @@ export function createAdapters(options: AdapterRegistryOptions = {}): ConfigAdap
     new AgentInstructionsAdapter(),
     new WorkspacesAdapter(),
     new CredentialsAdapter({ namespaces, refs: options.credentialsRefs }),
-    new PluginFilesAdapter(options.pluginFiles, options.pluginFilesDir),
+    new PluginFilesAdapter(options.pluginFiles, options.pluginFilesDir, options.pluginFilesExclude),
   ];
   // self 分区：插件自身配置（同步/市场/偏好），portable 默认包含；'' = 不挂载
   if (options.selfDir !== '') {
@@ -88,7 +90,10 @@ export { AgentPresetsAdapter } from './agent-presets.ts';
 export { AgentInstructionsAdapter } from './agent-instructions.ts';
 export { WorkspacesAdapter } from './workspaces.ts';
 export { CredentialsAdapter, defaultCredentialRefs } from './credentials.ts';
-export { PluginFilesAdapter, DEFAULT_PLUGIN_FILE_WHITELIST } from './plugin-files.ts';
+export {
+  PluginFilesAdapter, DEFAULT_PLUGIN_FILE_WHITELIST,
+  DEFAULT_PLUGIN_FILES_DIR, DEFAULT_PLUGIN_FILE_EXCLUDE,
+} from './plugin-files.ts';
 export { SessionsAdapter } from './sessions.ts';
 export { SelfAdapter, SELF_CONFIG_FILES } from './self.ts';
 export { FileCollectionAdapter } from './file-collection.ts';

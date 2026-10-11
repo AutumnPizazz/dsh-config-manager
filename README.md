@@ -6,6 +6,18 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/xiajiajun516/dsh-config-manager/blob/main/LICENSE)
 [![DSH plugin](https://img.shields.io/badge/DSH-plugin-blueviolet)](https://github.com/deepseek-ai/deepseek-harness)
 
+> **This repo is a personal fork by AutumnPizazz** (upstream [xiajiajun516/dsh-config-manager](https://github.com/xiajiajun516/dsh-config-manager), MIT, original authorship retained).
+> Published as `@autumnpizazz/dsh-config-manager`; install with `dsh plugin --profile web add @autumnpizazz/dsh-config-manager`.
+>
+> Differences from upstream 0.1.71 are confined to **pluginFiles defaults**, so that locally authored plugins (and their state files) travel with every backup with zero configuration:
+> 1. `pluginFilesDir` defaults to `'plugins'` (upstream collects nothing by default) — `~/.dsh/plugins/**` rides along, covering files referenced *relatively* by patch lines (`./plugins/<name>/index.mjs`), which the `plugins` section cannot pack (it only npm-packs `link:`/`file:` deps declared in `package.json`);
+> 2. `pluginFiles` now **merges** with the default whitelist, as documented (upstream replaces it);
+> 3. new `pluginFilesExclude`, default `['dsh-ssh.json']` — plaintext host passwords stay out unless you remove it; it only filters the *default* whitelist, explicit `pluginFiles` entries always win;
+> 4. `node_modules/` is skipped while walking `pluginFilesDir`.
+>
+> Everything else matches upstream.
+
+
 **DeepSeek Harness Backup, Restore & Migration Plugin.**
 
 Backup, restore, export, import, migrate and sync your complete DeepSeek Harness (DSH) configuration — settings, model providers, plugins, MCP servers, skills, agent presets and workspaces — and restore your whole environment on a new machine with one click.

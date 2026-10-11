@@ -166,7 +166,7 @@ export const name = 'config-manager'
 export const inject = ['settings', 'credentials']
 
 /** Plugin version, kept in sync with package.json ("version"). */
-export const PLUGIN_VERSION = '0.1.71'
+export const PLUGIN_VERSION = '0.1.72'
 
 /** Plugin own package name — excluded from its own exported plugins list. */
 const PLUGIN_NAME = 'dsh-config-manager'
@@ -216,8 +216,14 @@ export interface Config {
   /**
    * pluginFiles 分区：约定的插件配置目录（相对 ~/.dsh 根，如 'plugin-config'）。
    * 导出时递归收集该目录下所有文件（按相对 ~/.dsh 根的路径写回），实现「往目录放文件即自动随备份携带」。
+   * fork 定制：缺省 'plugins'（本机自研插件源码目录）；'' = 不收集。
    */
   pluginFilesDir?: string
+  /**
+   * fork 定制：从 pluginFiles **缺省白名单**里剔除的相对路径（缺省 ['dsh-ssh.json']，明文主机口令不进包）。
+   * 只影响缺省白名单；写进 pluginFiles 的条目始终生效。
+   */
+  pluginFilesExclude?: string[]
   /**
    * F2 个人隐私规则（对齐 dsh-packer config.personalPatterns）：个人化敏感字段名 /
    * 引用字段 / 值形状模式，由部署者注入（个人昵称、本机用户名等），不进开源代码。
@@ -3884,6 +3890,7 @@ export function apply(ctx: Context, config?: Config): void {
     // pluginFiles 扩展：额外白名单文件 + 约定配置目录（都相对 ~/.dsh 根），支持导出更多插件配置。
     pluginFiles: config?.pluginFiles,
     pluginFilesDir: config?.pluginFilesDir,
+    pluginFilesExclude: config?.pluginFilesExclude,
     // self 分区：插件自身配置（sync-*.json / market-config.json / ui-prefs.json）；'' = 不挂载
     selfDir,
     // T1：本地源（link:/file:）插件打包 —— 这些 spec 指向本机路径，换机后必然不可达，

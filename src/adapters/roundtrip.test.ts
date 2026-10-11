@@ -211,6 +211,9 @@ test('集成：pluginFiles 默认不导出 / sessions 默认不导出（manifest
   try {
     const src = makeContext('win32', 'C:\\Users\\alice');
     await src.fs.writeFile('dsh-ssh.json', Buffer.from('{"hosts":[]}', 'utf8'));
+    // fork 定制：dsh-ssh.json 在缺省排除表里（DEFAULT_PLUGIN_FILE_EXCLUDE），
+    // 所以「显式勾选后导出」改用缺省白名单里的 pet.json 来断言。
+    await src.fs.writeFile('pet.json', Buffer.from('{"pet":"x"}', 'utf8'));
     await src.fs.writeFile('sessions/p/s/s.jsonl.zstd', Buffer.from('x', 'utf8'));
     const adapters = createAdapters({ namespaces: NS, includeSessions: true });
     const zipPath = path.join(tmp, 'opt.zip');
@@ -226,7 +229,8 @@ test('集成：pluginFiles 默认不导出 / sessions 默认不导出（manifest
     const zipPath2 = path.join(tmp, 'opt2.zip');
     await exporter.export({ includeSecrets: false, only: ['pluginFiles', 'sessions'], outPath: zipPath2 });
     const archive2 = parseZip(await fs.readFile(zipPath2));
-    assert.ok(archive2.has('plugin-files/dsh-ssh.json'));
+    assert.ok(archive2.has('plugin-files/pet.json'));
+    assert.ok(!archive2.has('plugin-files/dsh-ssh.json'), 'fork 缺省不带明文口令');
     assert.ok(archive2.has('sessions/p/s/s.jsonl.zstd'));
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
