@@ -169,7 +169,9 @@ export const inject = ['settings', 'credentials']
 export const PLUGIN_VERSION = '0.1.72'
 
 /** Plugin own package name — excluded from its own exported plugins list. */
-const PLUGIN_NAME = 'dsh-config-manager'
+// fork 定制：本 fork 以 scoped 名发布（上游 npm 名 dsh-config-manager 已被原作者占用），
+// 该常量同时用于注册 profile bundle 行（name 必须与安装名一致）与从 plugins 分区里排除自身。
+const PLUGIN_NAME = '@autumnpizazz/dsh-config-manager'
 
 /**
  * Star 引导弹窗指向的 GitHub 仓库（用户引导点 Star 的目标）。

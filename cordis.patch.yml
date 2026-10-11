@@ -40,6 +40,7 @@
 # provider plugins (report §2.2), not services:
 #   llm-deepseek (settings.yaml section) -> @deepseek-ai/dsh-llm-deepseek
 #   llm-pi-ai    (settings.yaml section) -> @deepseek-ai/dsh-llm-pi-ai
+# fork 定制：本 fork 以 scoped 名发布，bundle 行的 name 必须与安装名一致。
 - insert:
     - id: config-manager
-      name: 'dsh-config-manager'
+      name: '@autumnpizazz/dsh-config-manager'
