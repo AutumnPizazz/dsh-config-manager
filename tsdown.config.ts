@@ -7,7 +7,7 @@
  * published lib/client.js):
  *
  *   window.__ModuleLoader__.load({
- *     id: "dsh-config-manager",
+ *     id: "<package.json name>",   // e.g. "@autumnpizazz/dsh-config-manager"
  *     factory: (require) => { ... cjs bundle ... return module.exports; }
  *   });
  *
@@ -26,8 +26,19 @@ import { defineConfig } from 'tsdown'
 import type { Plugin } from 'rolldown'
 import { transform as transformCss } from 'lightningcss'
 
-/** Loader id must match the package name (dsh-ssh uses "@linxin666/dsh-ssh"). */
-const LOADER_ID = 'dsh-config-manager'
+/**
+ * Loader id must be the **package name** (dsh-ssh ships "@linxin666/dsh-ssh"), because the
+ * host's client-modules resolves each bundle by its package name:
+ * `factories.has(packageName)` → otherwise
+ * `client-modules: could not load "<pkg>": ... loaded without registering "<pkg>"`.
+ *
+ * Derived from package.json rather than hardcoded. The scoped rename only touched the host
+ * half (`src/index.ts`) and left this file registering the old unscoped id, so every web boot
+ * aborted with `1 entry did not activate`. Deriving it makes that class of drift impossible.
+ */
+const LOADER_ID: string = JSON.parse(
+  readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'),
+).name
 
 /** Virtual-module prefix for compiled CSS Modules. */
 const CSS_VIRTUAL_PREFIX = '\0config-manager-css:'
@@ -120,7 +131,7 @@ export default defineConfig({
   outExtensions: ({ format }) => (format === 'cjs' ? { js: '.js', dts: '.d.ts' } : undefined),
   banner: [
     'window.__ModuleLoader__.load({',
-    '\tid: "dsh-config-manager",',
+    `\tid: ${JSON.stringify(LOADER_ID)},`,
     '\tfactory: (require) => {',
     '\t\tvar module = { exports: {} };',
     '\t\tvar exports = module.exports;',

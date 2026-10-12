@@ -1,6 +1,6 @@
 {
   "name": "@autumnpizazz/dsh-config-manager",
-  "version": "0.1.72",
+  "version": "0.1.73",
   "license": "MIT",
   "description": "Backup, restore, export, import, migrate and sync your DeepSeek Harness (DSH) configuration: settings, plugins, MCP servers, skills, agent presets and workspaces. One-click migration to another machine. DSH 配置一键备份、恢复、导出、导入、迁移与同步插件。（AutumnPizazz fork：pluginFiles 缺省收 plugins/、剔除 dsh-ssh.json、跳过 node_modules）",
   "icon": "./icon.svg",

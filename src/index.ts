@@ -166,7 +166,7 @@ export const name = 'config-manager'
 export const inject = ['settings', 'credentials']
 
 /** Plugin version, kept in sync with package.json ("version"). */
-export const PLUGIN_VERSION = '0.1.72'
+export const PLUGIN_VERSION = '0.1.73'
 
 /** Plugin own package name — excluded from its own exported plugins list. */
 // fork 定制：本 fork 以 scoped 名发布（上游 npm 名 dsh-config-manager 已被原作者占用），
