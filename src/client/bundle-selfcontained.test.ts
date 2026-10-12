@@ -29,6 +29,7 @@ import {
 } from '../utils/bundle-scan.ts'
 
 const BUNDLE_PATH = resolve(import.meta.dirname, '..', '..', 'lib', 'client.js')
+const PACKAGE_JSON_PATH = resolve(import.meta.dirname, '..', '..', 'package.json')
 
 test('lib/client.js 自包含：只 require 运行时白名单内的外部包', (t) => {
   if (!existsSync(BUNDLE_PATH)) {
@@ -82,4 +83,57 @@ test('lib/client.js 自包含：只 require 运行时白名单内的外部包', 
     `lib/client.js 的 require 说明符：${result.specifiers.join(', ')}` +
       `（各趟计数 ${JSON.stringify(result.passes.map((p) => [p.id, p.counts]))}）`,
   )
+})
+
+/**
+ * 护栏：client 半注册的 loader id 必须**等于包名**。
+ *
+ * 为什么需要这条护栏
+ * ------------------
+ * 宿主 `@deepseek-ai/dsh-client-modules` 按**包名**索引 client bundle 的 factory：
+ * bundle 脚本执行完后它会查 `factories.has(<package name>)`，查不到就抛
+ * `client-modules: could not load "<pkg>": ... loaded without registering "<pkg>" via
+ * __ModuleLoader__.load`，进而让整个 web boot 失败（`1 entry did not activate`）。
+ *
+ * 本仓库真实踩过：`tsdown.config.ts` 的 `LOADER_ID` 与 banner 里的 id 各写了一份字面量，
+ * 改为 scoped 包名（`@autumnpizazz/dsh-config-manager`）时只改了宿主半 `src/index.ts`，
+ * client 半仍注册旧的无 scope 名 `dsh-config-manager`，装机即崩。现在 id 由 package.json
+ * 派生，本测试把「产物里的 id == 包名」这条不变量钉死，防止再次回归。
+ *
+ * 参照：`@linxin666/dsh-ssh` 的产物注册 `id: "@linxin666/dsh-ssh"`（即其包名）。
+ */
+test('lib/client.js 注册的 loader id 必须等于 package.json 的包名', (t) => {
+  if (!existsSync(BUNDLE_PATH)) {
+    t.diagnostic(
+      `未找到 ${BUNDLE_PATH}（lib/ 已被 gitignore）。请先 npm run build；本测试在产物存在时才有判定力。`,
+    )
+    return
+  }
+
+  const source = readFileSync(BUNDLE_PATH, 'utf8')
+  const packageName: string = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf8')).name
+
+  // banner 恒在文件开头，只在头部匹配，避免误取 bundle 内部出现的同名字符串。
+  const matched = /__ModuleLoader__\.load\(\{\s*id:\s*("(?:[^"\\]|\\.)*")/.exec(
+    source.slice(0, 512),
+  )
+  assert.ok(
+    matched,
+    'lib/client.js 头部应形如 window.__ModuleLoader__.load({ id: "...", factory: ... })',
+  )
+
+  const rawId: string | undefined = matched[1]
+  assert.ok(rawId !== undefined, 'lib/client.js 的 loader id 应当是带引号的字符串字面量')
+
+  const registeredId = JSON.parse(rawId)
+  assert.equal(
+    registeredId,
+    packageName,
+    `client bundle 注册的 loader id 与包名不一致：注册 "${registeredId}"，包名 "${packageName}"。\n` +
+      `这会让宿主 client-modules 查不到该 factory 并抛 ` +
+      `\`could not load "${packageName}": ... loaded without registering\`，直接装崩 web boot。\n` +
+      `修复方向：tsdown.config.ts 的 LOADER_ID / banner 必须从 package.json 的 name 派生。`,
+  )
+
+  t.diagnostic(`loader id 与包名一致：${registeredId}`)
 })

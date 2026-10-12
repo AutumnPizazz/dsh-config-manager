@@ -25,6 +25,86 @@ This file records release highlights of dsh-config-manager (bilingual: 中文 + 
 >
 > **Theme**: {{one-line English theme}}
 
+## [0.1.73] - 2026-10-12
+
+> **本版主题：修「scoped 改名只改了宿主半、client 半仍注册无 scope 的 loader id」——0.1.72 装进 web profile 会让整个 dsh 起不来**：报
+> `Failed to load plugins` / `web boot: 1 entry did not activate`，根因是 `tsdown.config.ts` 把 loader id 写了**两份字面量**
+> （`LOADER_ID` 与 banner 里另起的那行），而 2026-10-11 的 scoped 改名提交只同步了宿主半（`src/index.ts` 的 `PLUGIN_NAME`
+> 与 `cordis.patch.yml` 的 bundle 行 id）⇒ client bundle 产物第 2 行仍是旧的无 scope 名 `dsh-config-manager`。宿主
+> `@deepseek-ai/dsh-client-modules` 是**按包名**索引 client factory 的（`factories.has("@autumnpizazz/dsh-config-manager")`），
+> 查不到就抛 `client-modules: could not load ...: loaded without registering`，该行不激活 ⇒ web boot 整场失败。
+> 现在 loader id **从 `package.json` 的 `name` 派生**（删掉第二份字面量，单一事实来源），并补一条构建产物护栏把
+> 「产物注册的 id ≡ 包名」钉死。
+>
+> **Theme**: fix a scoped rename that only updated the host half — the client bundle still registered the old unscoped
+> loader id, so installing 0.1.72 into a web profile aborted the entire dsh boot (`Failed to load plugins` /
+> `web boot: 1 entry did not activate`). Root cause: `tsdown.config.ts` declared the loader id as **two separate
+> literals** (`LOADER_ID` plus a second one inside `banner`), and the 2026-10-11 scoped rename only synced the host half
+> (`PLUGIN_NAME` in `src/index.ts`, the bundle row id in `cordis.patch.yml`), leaving line 2 of the built client bundle
+> registering the old unscoped `dsh-config-manager`. The host's `client-modules` indexes client factories **by package
+> name** (`factories.has("@autumnpizazz/dsh-config-manager")`), so the lookup missed and threw
+> `client-modules: could not load ...: loaded without registering`; that entry never activated and the whole boot failed.
+> The loader id is now **derived from `package.json`'s `name`** (the duplicate literal is gone — single source of truth),
+> plus a build-artifact guard pinning "registered id ≡ package name".
+
+### 🐛 修复 · Fixed
+
+- **（装崩 web boot）client bundle 注册的 loader id 与包名不一致**：症状是装上
+  `@autumnpizazz/dsh-config-manager@0.1.72` 后 web profile 起不来 —— `Failed to load plugins`、
+  `web boot: 1 entry did not activate`，以及
+  `client-modules: could not load "@autumnpizazz/dsh-config-manager": plugins/??…/client.js&rev=…: loaded without
+  registering "@autumnpizazz/dsh-config-manager" via __ModuleLoader__.load`。根因是 `tsdown.config.ts` 里
+  `const LOADER_ID = 'dsh-config-manager'` 与 `banner` 数组中另起的 `'\tid: "dsh-config-manager",'`（即产物第 2 行）
+  各写一份字面量，scoped 改名只改了宿主半 ⇒ 产物以旧名注册；宿主 `arrive()` 执行完 bundle 后查
+  `factories.has(<包名>)` 落空（记 `loaded without registering`，且**不重放**——重放会撞
+  `duplicate registration for "dsh-config-manager"`），fallback 再执行一次本行单资源 URL 后抛错，该行不激活。
+  现在 `LOADER_ID` 由 `readFileSync(resolve(process.cwd(), 'package.json'))` 的 `name` 派生、banner 用同一个值，
+  产物第 2 行的 id 恒等于包名（CSS 注入样式标签的 `data-tag` / `data-plugin` 也一并从旧名换成 scoped 名）。
+  **护栏**：`src/client/bundle-selfcontained.test.ts` 新增第 2 条用例
+  `lib/client.js 注册的 loader id 必须等于 package.json 的包名`（两条 workflow 的 “Bundle self-contained guard”
+  步骤本就在 `npm run build` 之后跑该文件）。
+  **复验口径（2026-10-12 本机）**：按宿主 `arrive()` 语义（组合批量 URL → fallback 单资源 URL）做的端到端沙箱复现，
+  在 0.1.72 产物上逐字复现出同一串报错、在修复产物上得到 `registered`（factories 含全部 4 个包名）；id 约定另与
+  `@linxin666/dsh-ssh`（`id: "@linxin666/dsh-ssh"`）、`dsh-vision`（`id: "dsh-vision"`）两个现存插件交叉验证。
+  **English**: **client bundle registered a loader id that did not match the package name (broke web boot)** — installing
+  `@autumnpizazz/dsh-config-manager@0.1.72` left the web profile unable to start (`Failed to load plugins`,
+  `web boot: 1 entry did not activate`, `client-modules: could not load "…": loaded without registering …`). Root cause:
+  `tsdown.config.ts` declared the id twice — `const LOADER_ID = 'dsh-config-manager'` and a separate literal inside
+  `banner` (line 2 of the artifact) — and the scoped rename touched only the host half, so the artifact kept registering
+  the unscoped name; the host's `arrive()` then missed `factories.has(<package name>)` (recorded as
+  `loaded without registering`, deliberately **not** replayed since a replay would hit
+  `duplicate registration for "dsh-config-manager"`), the fallback URL was executed once more, and the row threw and never
+  activated. `LOADER_ID` is now derived from `package.json`'s `name` and the banner reuses it, so the artifact's id always
+  equals the package name (the injected style tag's `data-tag` / `data-plugin` moved to the scoped name too).
+  **Guard**: a second case in `src/client/bundle-selfcontained.test.ts`
+  (`lib/client.js 注册的 loader id 必须等于 package.json 的包名`), already run after `npm run build` by the
+  “Bundle self-contained guard” step in both workflows. **Verification (2026-10-12, local)**: an end-to-end sandbox that
+  mirrors the host's `arrive()` semantics (combo URL → fallback single-resource URL) reproduced the exact error string on
+  the 0.1.72 artifact and returned `registered` on the fixed one (factories holding all four package names); the
+  id convention was cross-checked against two shipped plugins, `@linxin666/dsh-ssh` (`id: "@linxin666/dsh-ssh"`) and
+  `dsh-vision` (`id: "dsh-vision"`).
+
+## [0.1.72] - 2026-10-11
+
+> **本版主题：以 scoped 名 `@autumnpizazz/dsh-config-manager` 发布（npm 上无 scope 名已被原作者占用）** —— 宿主半
+> （`src/index.ts` 的 `PLUGIN_NAME` 与 `cordis.patch.yml` 的 bundle 行 id）随本次改名同步；client 半的 loader id
+> 当时漏改，缺陷与修复见 `0.1.73`。
+>
+> **Theme**: released under the scoped name `@autumnpizazz/dsh-config-manager` (the unscoped name is already taken by the
+> upstream author on npm) — the host half (`PLUGIN_NAME` in `src/index.ts`, the bundle row id in `cordis.patch.yml`) was
+> updated in the same commit; the client half's loader id was missed at the time, see `0.1.73` for the defect and the fix.
+
+### 🔧 变更 · Changed
+
+- **包名改为 `@autumnpizazz/dsh-config-manager`**：安装命令随之变为
+  `dsh plugin --profile <profile> add @autumnpizazz/dsh-config-manager`；`cordis.patch.yml` 的 bundle 行 id 与
+  `src/index.ts` 的 `PLUGIN_NAME` 已同步为 scoped 名。**⚠️ 本版有已知缺陷**：client bundle 的 loader id 漏改，装上会让
+  web boot 整场失败（`web boot: 1 entry did not activate`），已在 `0.1.73` 修复。
+  **Renamed to the scoped package `@autumnpizazz/dsh-config-manager`**: install with
+  `dsh plugin --profile <profile> add @autumnpizazz/dsh-config-manager`; the bundle row id in `cordis.patch.yml` and
+  `PLUGIN_NAME` in `src/index.ts` now use the scoped name. **⚠️ Known defect in this release**: the client bundle's loader
+  id was missed, which aborts the entire web boot (`web boot: 1 entry did not activate`); fixed in `0.1.73`.
+
 ## [0.1.71] - 2026-10-08
 
 > **本版主题：修「从其它 agent 导入」在 v4 桌面端整批丢会话** —— 外部来源的会话转码器此前只认 DSH 会话格式 v3，
